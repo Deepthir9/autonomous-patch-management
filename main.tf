@@ -89,8 +89,12 @@ resource "ibm_is_instance" "main" {
 
   # Prevent re-creation when a newer Ubuntu image is published after the
   # instance was first provisioned — matches the official IBM module pattern.
+  # Replace instance when the SSH key fingerprint changes so cloud-init installs the current key.
   lifecycle {
     ignore_changes = [image]
+    replace_triggered_by = [
+      ibm_is_ssh_key.main.fingerprint
+    ]
   }
 }
 
