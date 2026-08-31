@@ -7,12 +7,11 @@ data "ibm_resource_group" "main" {
 }
 
 # Resolve the latest available Ubuntu 24.04 LTS image in the target region.
-# ibm_is_images accepts top-level filter arguments (name_filter, status,
-# visibility) — there is no nested filter {} block in this data source.
+# ibm_is_images supports visibility and status as top-level filter arguments.
+# Name filtering is done in the locals block below via a for expression.
 data "ibm_is_images" "ubuntu" {
-  visibility  = "public"
-  status      = "available"
-  name_filter = "ibm-ubuntu-24-04"
+  visibility = "public"
+  status     = "available"
 }
 
 locals {
