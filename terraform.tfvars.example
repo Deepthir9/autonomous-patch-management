@@ -1,0 +1,10 @@
+# Copy this file to terraform.tfvars and fill in your values.
+# NEVER commit terraform.tfvars — it is excluded by .gitignore.
+
+ibmcloud_api_key = "YOUR_IBM_CLOUD_API_KEY"
+ssh_public_key   = "ssh-ed25519 AAAA... your-comment"
+
+region         = "us-south"
+zone           = "us-south-1"
+resource_group = "Default"
+instance_name  = "apm-demo"
