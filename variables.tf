@@ -28,12 +28,6 @@ variable "ssh_public_key" {
   sensitive   = true
 }
 
-variable "ssh_private_key" {
-  description = "SSH private key material corresponding to ssh_public_key. Used for remote-exec patch management over SSH."
-  type        = string
-  sensitive   = true
-}
-
 variable "zone" {
   description = "Availability zone within the chosen region (e.g. us-south-1)."
   type        = string
