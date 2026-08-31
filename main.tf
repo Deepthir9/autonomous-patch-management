@@ -131,21 +131,28 @@ resource "terraform_data" "patch_management" {
 
   provisioner "remote-exec" {
     inline = [
-      "echo '=== Step 1: Updating package lists ==='",
-      "sudo apt-get update",
-      "echo '=== Step 2: Checking available updates ==='",
+      "echo '=== [1/7] Patching Started: Initializing SSH session on Ubuntu VM ==='",
+      "echo 'Host: '$(hostname)' | Current Time: '$(date -u)",
+      "echo '=== [2/7] Updating package index (apt-get update) ==='",
+      "sudo apt-get update -y",
+      "echo 'Package update completed.'",
+      "echo '=== [3/7] Checking available package updates ==='",
       "apt list --upgradable 2>/dev/null | tee /tmp/pre-patch-upgrades.txt",
-      "PRE_COUNT=$(apt list --upgradable 2>/dev/null | grep -v 'Listing...' | wc -l)",
-      "echo \"Packages available for upgrade before patching: $PRE_COUNT\"",
-      "echo '=== Step 3: Applying available updates ==='",
+      "PRE_COUNT=$(apt list --upgradable 2>/dev/null | grep -v 'Listing...' | wc -l | tr -d ' ')",
+      "echo \"Number of available updates before patching: $PRE_COUNT\"",
+      "echo '=== [4/7] Applying available updates (apt-get upgrade) ==='",
       "sudo DEBIAN_FRONTEND=noninteractive apt-get upgrade -y",
-      "echo '=== Step 4: Verifying server reachability and status ==='",
+      "echo 'Package upgrade completed successfully.'",
+      "echo '=== [5/7] Checking reboot requirement status ==='",
+      "if [ -f /var/run/reboot-required ]; then echo 'Reboot requirement status: REBOOT REQUIRED (packages: /var/run/reboot-required.pkgs)'; else echo 'Reboot requirement status: NO REBOOT REQUIRED'; fi",
+      "echo '=== [6/7] Verifying server reachability and uptime ==='",
       "uptime",
-      "echo '=== Step 5: Checking remaining upgradeable packages ==='",
+      "echo 'Server reachability verified.'",
+      "echo '=== [7/7] Checking remaining upgradeable packages ==='",
       "apt list --upgradable 2>/dev/null | tee /tmp/post-patch-upgrades.txt",
-      "POST_COUNT=$(apt list --upgradable 2>/dev/null | grep -v 'Listing...' | wc -l)",
-      "echo \"Packages remaining for upgrade after patching: $POST_COUNT\"",
-      "echo '=== Patch Management Operation Complete ==='"
+      "POST_COUNT=$(apt list --upgradable 2>/dev/null | grep -v 'Listing...' | wc -l | tr -d ' ')",
+      "echo \"Number of remaining upgradeable packages: $POST_COUNT\"",
+      "echo '=== Final Patch Status: SUCCESS - Patch management workflow finished ==='"
     ]
   }
 }

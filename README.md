@@ -4,8 +4,24 @@ Terraform project for the **Autonomous Patch Management with watsonx Orchestrate
 
 This configuration provisions the minimum IBM Cloud infrastructure required to reach the next phase of the project:
 
-```
-IBM Cloud VM → SSH → apt-get update → check updates → apt-get upgrade → verify → report result
+```text
+IBM Cloud Schematics
+↓
+Terraform
+↓
+IBM Cloud Ubuntu VM
+↓
+SSH using secure Schematics variable
+↓
+apt-get update
+↓
+Check available updates
+↓
+apt-get upgrade
+↓
+Verify server
+↓
+Report patch result
 ```
 
 > **Provider-verified** — all resources audited against the IBM Cloud Terraform provider source and the official [`terraform-ibm-modules/landing-zone-vsi`](https://registry.terraform.io/modules/terraform-ibm-modules/landing-zone-vsi/ibm/latest) reference module (v6.6.2, 407 K downloads).
@@ -32,15 +48,17 @@ The VSI uses **Ubuntu 24.04 LTS** (latest available public image) and the `bx2-2
 
 ## Patch Management Workflow
 
-The patch management portion uses Terraform's built-in `terraform_data` resource and `remote-exec` provisioner to execute the patch sequence once the VM, floating IP, and security group rules are established:
+The patch management portion uses Terraform's built-in `terraform_data` resource and `remote-exec` provisioner (fully compatible with Terraform 1.5+ through Terraform 1.11 and IBM Cloud Schematics) to execute the patch sequence once the VM, floating IP, and security group rules are established:
 
 1. **SSH Connection**: Connects securely as `ubuntu` to `instance_floating_ip` using `var.ssh_private_key`.
-2. **Package Index Update**: Runs `sudo apt-get update` to refresh repository indexes.
-3. **Pre-patch Check**: Queries `apt list --upgradable` and counts packages available for upgrade.
-4. **Patch Application**: Executes `sudo DEBIAN_FRONTEND=noninteractive apt-get upgrade -y` to apply available updates without interactive prompts.
-5. **Post-patch Verification**: Runs `uptime` to confirm server reachability and responsiveness.
-6. **Remaining Check**: Checks `apt list --upgradable` to verify and report remaining upgradeable packages.
-7. **Result Output**: Terraform reports the `patch_status` output upon completion.
+2. **Patching Started**: Logs startup timestamp, hostname, and connection validation.
+3. **Package Index Update**: Runs `sudo apt-get update -y` and logs completion.
+4. **Check Available Updates**: Queries `apt list --upgradable` and logs the count/list of available packages before patching.
+5. **Apply Available Updates**: Executes `sudo DEBIAN_FRONTEND=noninteractive apt-get upgrade -y` non-interactively and logs completion.
+6. **Reboot Requirement Check**: Inspects `/var/run/reboot-required` and logs whether a reboot is required by installed updates.
+7. **Verify Server Reachability**: Executes `uptime` to confirm instance responsiveness and uptime after package installation.
+8. **Remaining Upgrade Check**: Queries `apt list --upgradable` and logs remaining package count after patching.
+9. **Final Patch Result**: Outputs final status and populates the `patch_result` output.
 
 ---
 
@@ -112,9 +130,14 @@ The patch management portion uses Terraform's built-in `terraform_data` resource
 2. Point it at this repository (or upload a `.tar.gz` of the project).
 3. Set the Terraform version to **1.5** or later.
 4. Add the required variables in the workspace **Variables** panel:
-   - Mark `ibmcloud_api_key`, `ssh_public_key`, and `ssh_private_key` as **sensitive**.
-5. Click **Generate plan**, review, then **Apply plan**.
-6. Find the `instance_floating_ip` value in the **Outputs** tab.
+   - `ibmcloud_api_key` (**sensitive = true** / Masked in UI)
+   - `ssh_public_key` (**sensitive = true** / Masked in UI)
+   - `ssh_private_key` (**sensitive = true** / Masked in UI)
+   
+   > **CRITICAL SECURITY REQUIREMENT**: `ssh_private_key` MUST be configured directly in the IBM Cloud Schematics workspace as a **SECURE / Masked variable**. **NEVER commit `ssh_private_key` or any private key files to GitHub or version control.**
+
+5. Click **Generate plan**, review the plan log, then click **Apply plan**.
+6. View the remote-exec output logs in the Schematics apply log and find `instance_floating_ip` and `patch_result` in the **Outputs** tab.
 
 ---
 
@@ -146,7 +169,7 @@ instance_name    = "apm-demo"
 | `instance_id` | IBM Cloud resource ID of the VSI |
 | `instance_name` | Name of the VSI |
 | `vpc_id` | IBM Cloud resource ID of the VPC |
-| `patch_status` | Status summary of the patch management operation |
+| `patch_result` | Status summary of the patch management operation |
 
 ---
 
@@ -154,7 +177,8 @@ instance_name    = "apm-demo"
 
 - The SSH security group rule allows inbound TCP 22 from `0.0.0.0/0`. Restrict the `remote` CIDR to your own IP range before using in any shared environment.
 - The API key, SSH public key, and SSH private key variables are marked `sensitive = true` and will not appear in Terraform plan/apply output or Schematics logs.
-- No credentials or private keys are stored in any Terraform file. Supply them via `terraform.tfvars` (local) or Schematics workspace variables (cloud).
+- `ssh_private_key` MUST be provided exclusively through secure workspace variables in IBM Cloud Schematics or via local `terraform.tfvars` (which is excluded via `.gitignore`). Never commit private keys to GitHub.
+- No credentials or private keys are stored in any Terraform file or committed repository files.
 
 ---
 
