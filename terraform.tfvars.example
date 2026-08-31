@@ -8,3 +8,7 @@ region         = "us-south"
 zone           = "us-south-1"
 resource_group = "Default"
 instance_name  = "apm-demo"
+
+# Ubuntu 24.04 LTS image ID for the target region.
+# Find with: ibmcloud is images --visibility public --status available | grep ibm-ubuntu-24-04
+image_id = "r006-867f36e5-f875-4571-9c60-b4ea9a0bc1b9"

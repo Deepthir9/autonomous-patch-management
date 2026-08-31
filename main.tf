@@ -6,23 +6,6 @@ data "ibm_resource_group" "main" {
   name = var.resource_group
 }
 
-# Resolve the latest available Ubuntu 24.04 LTS image in the target region.
-# ibm_is_images supports visibility and status as top-level filter arguments.
-# Name filtering is done in the locals block below via a for expression.
-data "ibm_is_images" "ubuntu" {
-  visibility = "public"
-  status     = "available"
-}
-
-locals {
-  # Sort matching images by created_at descending and take the newest one.
-  # This is deterministic regardless of API return order.
-  ubuntu_image_id = reverse(sort([
-    for img in data.ibm_is_images.ubuntu.images : img.id
-    if startswith(img.name, "ibm-ubuntu-24-04")
-  ]))[0]
-}
-
 ##############################################################################
 # VPC
 ##############################################################################
@@ -89,7 +72,7 @@ resource "ibm_is_ssh_key" "main" {
 
 resource "ibm_is_instance" "main" {
   name           = "${var.instance_name}-vsi"
-  image          = local.ubuntu_image_id
+  image          = var.image_id
   profile        = "bx2-2x8" # 2 vCPU / 8 GB — lowest-cost balanced profile
   zone           = var.zone
   vpc            = ibm_is_vpc.main.id

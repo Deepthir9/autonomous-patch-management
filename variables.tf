@@ -33,3 +33,16 @@ variable "zone" {
   type        = string
   default     = "us-south-1"
 }
+
+variable "image_id" {
+  description = <<-EOT
+    ID of the IBM Cloud VPC stock image to use for the virtual server instance.
+    Must be a public Ubuntu 24.04 LTS image available in the target region.
+
+    Look up the current ID with:
+      ibmcloud is images --visibility public --status available | grep ibm-ubuntu-24-04
+
+    Example (us-south, May 2025): r006-867f36e5-f875-4571-9c60-b4ea9a0bc1b9
+  EOT
+  type        = string
+}
