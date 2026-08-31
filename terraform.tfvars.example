@@ -3,6 +3,11 @@
 
 ibmcloud_api_key = "YOUR_IBM_CLOUD_API_KEY"
 ssh_public_key   = "ssh-ed25519 AAAA... your-comment"
+ssh_private_key  = <<-EOT
+-----BEGIN OPENSSH PRIVATE KEY-----
+...
+-----END OPENSSH PRIVATE KEY-----
+EOT
 
 region         = "us-south"
 zone           = "us-south-1"

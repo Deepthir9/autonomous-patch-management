@@ -103,3 +103,49 @@ resource "ibm_is_floating_ip" "main" {
   target         = ibm_is_instance.main.primary_network_interface[0].id
   resource_group = data.ibm_resource_group.main.id
 }
+
+##############################################################################
+# Patch management (proof-of-concept remote-exec)
+##############################################################################
+
+resource "terraform_data" "patch_management" {
+  depends_on = [
+    ibm_is_instance.main,
+    ibm_is_floating_ip.main,
+    ibm_is_security_group_rule.ssh,
+    ibm_is_security_group_rule.outbound_all
+  ]
+
+  triggers_replace = [
+    ibm_is_instance.main.id,
+    ibm_is_floating_ip.main.address
+  ]
+
+  connection {
+    type        = "ssh"
+    user        = "ubuntu"
+    host        = ibm_is_floating_ip.main.address
+    private_key = var.ssh_private_key
+    timeout     = "5m"
+  }
+
+  provisioner "remote-exec" {
+    inline = [
+      "echo '=== Step 1: Updating package lists ==='",
+      "sudo apt-get update",
+      "echo '=== Step 2: Checking available updates ==='",
+      "apt list --upgradable 2>/dev/null | tee /tmp/pre-patch-upgrades.txt",
+      "PRE_COUNT=$(apt list --upgradable 2>/dev/null | grep -v 'Listing...' | wc -l)",
+      "echo \"Packages available for upgrade before patching: $PRE_COUNT\"",
+      "echo '=== Step 3: Applying available updates ==='",
+      "sudo DEBIAN_FRONTEND=noninteractive apt-get upgrade -y",
+      "echo '=== Step 4: Verifying server reachability and status ==='",
+      "uptime",
+      "echo '=== Step 5: Checking remaining upgradeable packages ==='",
+      "apt list --upgradable 2>/dev/null | tee /tmp/post-patch-upgrades.txt",
+      "POST_COUNT=$(apt list --upgradable 2>/dev/null | grep -v 'Listing...' | wc -l)",
+      "echo \"Packages remaining for upgrade after patching: $POST_COUNT\"",
+      "echo '=== Patch Management Operation Complete ==='"
+    ]
+  }
+}

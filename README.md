@@ -5,7 +5,7 @@ Terraform project for the **Autonomous Patch Management with watsonx Orchestrate
 This configuration provisions the minimum IBM Cloud infrastructure required to reach the next phase of the project:
 
 ```
-Terraform → IBM Cloud VPC → Ubuntu VM → Floating IP
+IBM Cloud VM → SSH → apt-get update → check updates → apt-get upgrade → verify → report result
 ```
 
 > **Provider-verified** — all resources audited against the IBM Cloud Terraform provider source and the official [`terraform-ibm-modules/landing-zone-vsi`](https://registry.terraform.io/modules/terraform-ibm-modules/landing-zone-vsi/ibm/latest) reference module (v6.6.2, 407 K downloads).
@@ -24,8 +24,23 @@ Terraform → IBM Cloud VPC → Ubuntu VM → Floating IP
 | SSH key | `ibm_is_ssh_key` | `<instance_name>-key` |
 | Virtual server instance | `ibm_is_instance` | `<instance_name>-vsi` |
 | Floating IP | `ibm_is_floating_ip` | `<instance_name>-fip` |
+| Patch Management Provisioner | `terraform_data` | `patch_management` |
 
 The VSI uses **Ubuntu 24.04 LTS** (latest available public image) and the `bx2-2x8` profile (2 vCPU / 8 GB RAM) — the smallest balanced profile suitable for a demo workload.
+
+---
+
+## Patch Management Workflow
+
+The patch management portion uses Terraform's built-in `terraform_data` resource and `remote-exec` provisioner to execute the patch sequence once the VM, floating IP, and security group rules are established:
+
+1. **SSH Connection**: Connects securely as `ubuntu` to `instance_floating_ip` using `var.ssh_private_key`.
+2. **Package Index Update**: Runs `sudo apt-get update` to refresh repository indexes.
+3. **Pre-patch Check**: Queries `apt list --upgradable` and counts packages available for upgrade.
+4. **Patch Application**: Executes `sudo DEBIAN_FRONTEND=noninteractive apt-get upgrade -y` to apply available updates without interactive prompts.
+5. **Post-patch Verification**: Runs `uptime` to confirm server reachability and responsiveness.
+6. **Remaining Check**: Checks `apt list --upgradable` to verify and report remaining upgradeable packages.
+7. **Result Output**: Terraform reports the `patch_status` output upon completion.
 
 ---
 
@@ -48,6 +63,7 @@ The VSI uses **Ubuntu 24.04 LTS** (latest available public image) and the `bx2-2
 | `region` | IBM Cloud region | `us-south` |
 | `resource_group` | Existing resource group name | `Default` |
 | `ssh_public_key` | SSH public key contents (**sensitive**) | — |
+| `ssh_private_key` | SSH private key corresponding to `ssh_public_key` (**sensitive**) | — |
 | `zone` | Availability zone | `us-south-1` |
 
 ---
@@ -96,7 +112,7 @@ The VSI uses **Ubuntu 24.04 LTS** (latest available public image) and the `bx2-2
 2. Point it at this repository (or upload a `.tar.gz` of the project).
 3. Set the Terraform version to **1.5** or later.
 4. Add the required variables in the workspace **Variables** panel:
-   - Mark `ibmcloud_api_key` and `ssh_public_key` as **sensitive**.
+   - Mark `ibmcloud_api_key`, `ssh_public_key`, and `ssh_private_key` as **sensitive**.
 5. Click **Generate plan**, review, then **Apply plan**.
 6. Find the `instance_floating_ip` value in the **Outputs** tab.
 
@@ -109,6 +125,11 @@ Create a `terraform.tfvars` file (never commit this file):
 ```hcl
 ibmcloud_api_key = "YOUR_IBM_CLOUD_API_KEY"
 ssh_public_key   = "ssh-ed25519 AAAA... your-comment"
+ssh_private_key  = <<-EOT
+-----BEGIN OPENSSH PRIVATE KEY-----
+...
+-----END OPENSSH PRIVATE KEY-----
+EOT
 region           = "us-south"
 zone             = "us-south-1"
 resource_group   = "Default"
@@ -125,14 +146,15 @@ instance_name    = "apm-demo"
 | `instance_id` | IBM Cloud resource ID of the VSI |
 | `instance_name` | Name of the VSI |
 | `vpc_id` | IBM Cloud resource ID of the VPC |
+| `patch_status` | Status summary of the patch management operation |
 
 ---
 
 ## Security notes
 
 - The SSH security group rule allows inbound TCP 22 from `0.0.0.0/0`. Restrict the `remote` CIDR to your own IP range before using in any shared environment.
-- The API key and SSH public key variables are marked `sensitive = true` and will not appear in Terraform plan/apply output or Schematics logs.
-- No credentials are stored in any Terraform file. Supply them via `terraform.tfvars` (local) or Schematics workspace variables (cloud).
+- The API key, SSH public key, and SSH private key variables are marked `sensitive = true` and will not appear in Terraform plan/apply output or Schematics logs.
+- No credentials or private keys are stored in any Terraform file. Supply them via `terraform.tfvars` (local) or Schematics workspace variables (cloud).
 
 ---
 

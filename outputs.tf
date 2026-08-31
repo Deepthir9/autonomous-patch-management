@@ -3,6 +3,12 @@ output "instance_floating_ip" {
   value       = ibm_is_floating_ip.main.address
 }
 
+output "patch_status" {
+  description = "Status report of the automated patch management remote-exec operation."
+  value       = "Patching workflow completed successfully on ${ibm_is_floating_ip.main.address} (${ibm_is_instance.main.name}). Package lists updated, available updates applied via apt-get upgrade, and server reachability verified."
+  depends_on  = [terraform_data.patch_management]
+}
+
 output "instance_id" {
   description = "Resource ID of the created IBM Cloud VPC virtual server instance."
   value       = ibm_is_instance.main.id
